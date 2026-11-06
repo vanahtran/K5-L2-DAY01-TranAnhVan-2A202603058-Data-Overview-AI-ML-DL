@@ -37,17 +37,20 @@
 **Mở file:** `day1_lab_outputs/classification_predictions.json` và `visuals/classification_top5.png`.  
 Chỉ dùng ảnh `sample_id = traffic`, lấy dòng `rank = 1`.
 
-1. Chép record hạng 1: `class_id`= 668 ; `class_name`= "cab" ; `rank`=1 ; `score`= 0.510915; `taxonomy_name`= "ImageNet-1K"
+1. Chép record hạng 1: `class_id`= 468 ; `class_name`= "cab" ; `rank`=1 ; `score`= 0.510915; `taxonomy_name`= "ImageNet-1K"
 2. Record này nói về **cả bức ảnh** hay về **một vật thể riêng** trong ảnh? Vì sao bạn nghĩ vậy?
- Record này nói về cả bức ảnh. Vì trường task ghi rõ là "image_classification" (phân loại toàn ảnh) và hoàn toàn không có các trường thông tin toạ độ như bounding box (bbox) hay điểm polygon để khoanh vùng vị trí của một vật thể cụ thể nào.
+ Đây là nhãn dự đoán ở cấp độ toàn ảnh. Tác vụ trong JSON là image_classification; mỗi record gắn một lớp và một score với sample_id = traffic, không có tọa độ box hay polygon để chỉ ra vị trí một đối tượng cụ thể. Vì vậy, cab là kết quả mô hình dùng để mô tả/đại diện cho nội dung ảnh theo taxonomy, không phải khẳng định rằng trong ảnh chỉ có một chiếc cab.
 3. Danh sách tên lớp (class list) do đâu mà có: model tự nghĩ ra, hay đi kèm taxonomy/checkpoint?
- Danh sách này đi kèm với taxonomy/checkpoint.Khi nhìn vào JSON sẽ thấy trường taxonomy_name là "ImageNet-1K". Điều này có nghĩa là checkpoint model này đã được train trên bộ dữ liệu ImageNet-1K, nó sử dụng cố định danh sách 1000 lớp của bộ đó chứ không thể tự nghĩ ra tên lớp mới.
+ Tên lớp và mã lớp được xác định bởi taxonomy đi kèm mô hình/checkpoint. JSON ghi taxonomy_name = ImageNet-1K; mô hình chọn lớp trong danh sách đã định nghĩa, không tự sáng tạo một nhãn tùy ý ở thời điểm dự đoán.
 4. Vì sao cần ghi cả `class_id`, `class_name` và `taxonomy_name`, không chỉ ghi mỗi tên lớp?
- Vì chỉ dùng class_name thì rất dễ sinh ra lỗi đồng âm khác nghĩa hoặc sai chính tả. taxonomy_name giúp xác định rõ hệ quy chiếu đang dùng, còn class_id là mã số định danh duy nhất giúp hệ thống máy tính xử lý chính xác, tự động mà không bị nhầm lẫn ngôn ngữ.
+ - class_id: mã số để hệ thống tham chiếu ổn định.
+ - class_name: tên dễ đọc cho con người.
+ - taxonomy_name: cho biết mã và tên đó thuộc bộ phân loại nào.
+Chỉ ghi tên lớp sẽ thiếu ngữ cảnh khi các taxonomy khác nhau có thể dùng tên hoặc cách phân nhóm khác nhau.
 5. Nếu trong ảnh có nhiều vật / nhiều chủ đề, guideline cần nói rõ điều gì để người gán nhãn chọn **một** lớp?
- Guideline bắt buộc phải quy định rõ tiêu chí ưu tiên. Ví dụ: phải chọn đối tượng nằm ngay trung tâm ảnh, đối tượng chiếm diện tích lớn nhất, hoặc chọn theo chủ đề ưu tiên của dự án. Đồng thời, guideline cũng phải hướng dẫn cách xử lý ca khó (escalation báo cho reviewer/lab coach) nếu có nhiều vật tương đương nhau.
+ Guideline phải định nghĩa trước đơn vị cần phân loại và tiêu chí chọn nhãn chính. Ví dụ, nếu mục tiêu dự án là phân loại chủ đề chính của ảnh giao thông, annotator có thể chọn chủ đề chiếm ưu thế theo tiêu chí đã thống nhất (chẳng hạn loại phương tiện/hoạt động chính), không mặc định chọn vật ở chính giữa hoặc vật có diện tích lớn nhất nếu dự án chưa quy định như vậy. Khi hai chủ đề ngang nhau hoặc không thể áp dụng tiêu chí, annotator đánh dấu needs_review và chuyển reviewer/QC; không tự đoán.
 6. Vì sao không được lấy `score` của model làm ground truth?
- Vì dưới ghi chú của hình ảnh có ghi: "độ tin cậy của mô hình (không phải chất lượng ground truth)" [1]. Score (ở đây là 0.510915) chỉ là mức độ tự tin của máy tính đối với phán đoán của nó. Máy hoàn toàn có thể tự tin rất cao nhưng dự đoán sai bét. Ground truth phải là "chân lý" do con người (annotator) xác nhận bằng mắt dựa trên guideline.
+ score = 0.510915 là mức độ mô hình gán cho dự đoán cab, không phải xác nhận của con người về nhãn đúng. Model có thể tự tin nhưng vẫn nhầm; ground truth phải được tạo/duyệt bởi annotator theo guideline và reviewer/QC kiểm tra. Ảnh traffic có nhiều xe buýt, ô tô và người; nhãn top-1 cab không đủ để kết luận toàn bộ ảnh thực tế chỉ có cab. Đây là điểm cần reviewer xem xét theo mục tiêu phân loại của dự án, không tự động sửa prediction thành ground truth.
 ## 2. Phát hiện vật thể
 
 **Mở file:** `day1_lab_outputs/detection_predictions.json` và `visuals/detection_predictions.png`.  
@@ -56,15 +59,25 @@ Số lượng prediction theo ngưỡng: xem output ô so sánh `0.20` / `0.35` 
 
 1. Chép một record: `class_name`="person" ; `score`=0.912625 ; `bbox_xyxy`=[385.33, 69.24, 498.92, 348.92] ; `bbox_width`=113.58 ; `bbox_height`=279.68
 2. Giải thích box bằng lời thường: góc trên-trái ở đâu, góc dưới-phải ở đâu, rộng/cao bao nhiêu pixel?
- Định dạng bbox_xyxy (x_min, y_min, x_max, y_max) biểu diễn tọa độ không gian của bounding box trên lưới pixel của bức ảnh. Áp dụng vào bản ghi trên: Góc trên-trái (x1, y1): Nằm cách mép trái của bức ảnh 385.33 pixel và cách mép trên của bức ảnh 69.24 pixel. Góc dưới-phải (x2, y2): Nằm cách mép trái của bức ảnh 498.92 pixel và cách mép trên của bức ảnh 348.92 pixel. Kích thước vật lý: Hộp bao quanh vật thể có chiều rộng đo được là 113.58 pixel và chiều cao là 279.68 pixel.   
+ Với định dạng xyxy = [x_min, y_min, x_max, y_max]:
+- Góc trên-trái: (385.33, 69.24) – cách mép trái 385.33 pixel và mép trên 69.24 pixel.
+- Góc dưới-phải: (498.92, 348.92).
+- Chiều rộng: 498.92 − 385.33 = 113.59 pixel (JSON lưu 113.58, do làm tròn số thực).
+- Chiều cao: 348.92 − 69.24 = 279.68 pixel.
+Tọa độ tính từ góc trên-trái ảnh; trục x tăng sang phải, trục y tăng xuống dưới. Box là hình chữ nhật bao vật thể, không phải đường biên pixel chính xác.  
 3. Chọn hai ngưỡng (vd. 0.20 và 0.60). Mỗi ngưỡng có bao nhiêu prediction?
- Tác động của threshold (Theo yêu cầu Rubric): Khi đặt ngưỡng thấp (0.20), mô hình sẽ trả về số lượng prediction nhiều hơn, do chấp nhận cả những dự đoán có độ tin cậy thấp (dễ sinh ra False Positive). Ngược lại, khi đặt ngưỡng cao (0.60), mô hình trả về số lượng prediction ít hơn, chỉ giữ lại các hộp mà mô hình đánh giá với độ tự tin cao (giảm False Positive nhưng rủi ro tăng False Negative - bỏ sót vật thể).
+ JSON được cung cấp chỉ ghi score_threshold = 0.35. Trong detection_predictions.json, mẫu kitchen có 11 prediction được lưu; trong segmentation_predictions.json, mẫu kitchen cũng có 11 instance được lưu ở threshold 0.35. Đây là số record hiện có trong file, không phải số lượng ground-truth object.
+
+Không có output so sánh hoặc danh sách prediction thô cho threshold 0.20 và 0.60 trong các tệp đã gửi, nên không thể xác nhận số prediction ở hai ngưỡng đó. Không nên tự điền số. Về nguyên tắc, nếu giữ nguyên model và dữ liệu, hạ threshold thường giữ lại nhiều prediction hơn; nâng threshold thường loại bớt prediction điểm thấp. Muốn báo cáo con số chính xác cần chạy lại notebook ở từng ngưỡng và lưu bảng đếm tương ứng.
 4. Khi hạ ngưỡng (giữ nhiều hộp hơn), người **reviewer** phải làm thêm việc gì?
- Khi hạ ngưỡng, lượng hộp dự đoán tăng lên kéo theo tỷ lệ nhiễu (False Positives) cao. Người kiểm tra chất lượng (Reviewer/QC) sẽ phải thực hiện các thao tác: kiểm tra trực quan một lượng lớn bounding box, xóa bỏ các hộp nhận diện sai (background hoặc nhận diện sai nhãn), và tinh chỉnh kích thước các hộp bị chồng lấn (overlapping) để đảm bảo chất lượng nhãn ground truth đạt chuẩn.    
+ Reviewer/QC cần rà soát số lượng candidate tăng thêm: xác minh nhãn, box có thực sự bao vật thể hay chỉ bao nền, box trùng/chồng lấn, vật thể bị bỏ sót và các trường hợp bị che/cắt mép. Chỉ xóa/sửa prediction khi có căn cứ từ ảnh và guideline; score thấp không tự động đồng nghĩa prediction sai, score cao cũng không tự động chứng minh prediction đúng.    
 5. Viết **một quy tắc box** để người gán nhãn làm theo (áp dụng được cho nhiều ảnh, không chỉ ảnh này).
- Quy tắc Bao sát (Tight Bounding Box): "Người gán nhãn (Annotator) phải vẽ bounding box sao cho các cạnh của hộp vừa chạm sát vào các điểm biên ngoài cùng của phần vật thể nhìn thấy được. Không được để khoảng trống (margin) dư thừa và tuyệt đối không vẽ hộp bao trùm lên phần bóng đổ (shadow) của vật thể trên các bề mặt."
+ Vẽ một bounding box cho từng đối tượng thuộc phạm vi taxonomy; box ôm sát phần đối tượng nhìn thấy được. Nếu đối tượng bị cắt bởi biên ảnh, box dừng tại biên ảnh và chỉ bao phần còn nhìn thấy; không suy diễn phần nằm ngoài ảnh. Không đưa bóng đổ hoặc vật thể lân cận vào box. Nếu không xác định được ranh giới do che khuất, đánh dấu cần review thay vì tự ước lượng.
 6. Trên ảnh `kitchen`, chỉ ra **một** vật bị che khuất hoặc cắt mép. Bạn sẽ viết thành quy tắc trong guideline, hay đưa lên hỏi Lab Coach (escalation)? Vì sao?
- Hiện tượng quan sát được: Trên ảnh detection_predictions.jpg, đối tượng "person" (người đứng quay lưng) đang bị cắt mất một phần chân bởi mép dưới của bức ảnh và một tay bị che bởi mép phải.   Quyết định: Viết thành Quy tắc trong Guideline thay vì Escalation.Giải thích (Theo tiêu chí Rubric): Tình trạng vật thể bị cắt bởi mép ảnh (truncation) hoặc che khuất (occlusion) là rất phổ biến trong dữ liệu thị giác máy tính. Thay vì để người gán nhãn (annotator) liên tục báo cáo (escalation) những ca này, dự án cần thống nhất quy tắc ngay từ đầu để xử lý hàng loạt. Ví dụ quy tắc: "Đối với vật thể bị cắt mép ảnh, chỉ vẽ bounding box bao quanh vùng diện tích hiển thị thực tế trên ảnh, không tự suy luận và vẽ lấn ra ngoài phần bị cắt." Việc này giúp tách bạch rõ ràng giữa quy tắc áp dụng chung và những trường hợp dị biệt thật sự cần escalation.   
+ Trong detection_predictions.png và record kitchen có một người ở sát mép trái:
+- class_name = person, score = 0.610931.
+- bbox_xyxy = [0.12, 263.18, 61.55, 310.78].
+Box bắt đầu gần x = 0, phù hợp với quan sát người chỉ xuất hiện một phần ở mép trái ảnh. Đây là ví dụ truncation có thể xử lý bằng guideline chung: chỉ gán nhãn phần nhìn thấy trong khung ảnh. Người đứng giữa ảnh (score = 0.912625) không bị cắt chân ở mép dưới theo box [385.33, 69.24, 498.92, 348.92]; do đó không dùng người này làm ví dụ cắt mép. 
 
 ## 3. Phân đoạn theo từng đối tượng
 
@@ -73,13 +86,19 @@ Chỉ dùng ảnh `sample_id = kitchen`. Chọn **một** record.
 
 1. Chép một record: `instance_id`="kitchen-001" ; `class_name`="person" ; `score`= 0.899318 ; số điểm polygon=`polygon_point_count`=348 ; 3–5 điểm đầu của `polygon_xy`=[[446.0, 70.0], [445.0, 71.0], [444.0, 71.0], [443.0, 72.0], [442.0, 72.0]]
 2. So với box, polygon cho thêm thông tin gì về hình dạng vật thể?
- So với bounding box (chỉ định vị không gian bằng một hình chữ nhật thô), đa giác (polygon) cho thêm thông tin chi tiết về đường viền biên (contour) và độ lồi lõm thực tế của vật thể ở cấp độ pixel. Việc này giúp mô hình tách bạch chính xác diện tích thực tế của vật thể ra khỏi phông nền (background) hoặc các vật thể lân cận bị lọt vào bên trong hộp chữ nhật (như đáp ứng yêu cầu "khác biệt với box" trong Rubric).   
+ Bounding box chỉ mô tả vùng chữ nhật bao ngoài đối tượng. Polygon lưu các điểm đường biên để mô tả hình dạng và vùng mask sát đối tượng hơn, nhờ đó có thể phân biệt phần đối tượng với nền hoặc các vật thể gần kề. polygon_point_count = 348 là số điểm được lưu trong polygon của instance này; nó không phải số pixel ground truth và cũng không tự chứng minh mask chính xác.  
 3. `instance_id` dùng để làm gì? Nó **không** phải class ID và **không** phải tracking ID — bạn hiểu câu này thế nào?
- instance_id : đóng vai trò làm mã định danh duy nhất để đếm và phân biệt từng "cá thể" riêng lẻ tồn tại bên trong cùng một bức ảnh.Không phải class ID: Vì class ID chỉ đại diện cho chủng loại (nhóm). Nếu ảnh có 5 người thì cả 5 đều chung class_id = 0 nhưng phải có 5 instance_id khác biệt.Không phải tracking ID: Vì tracking ID được sinh ra để theo dõi quỹ đạo của cùng một cá thể xuyên suốt nhiều khung hình (frame) liên tiếp trong một video. Trong bài lab tĩnh này, instance_id chỉ có giá trị cục bộ trên một ảnh duy nhất.
+ instance_id = kitchen-001 là mã định danh cho một instance trong artifact/ảnh này. Nó khác với:
+- class_id = 0: mã lớp person, có thể dùng chung cho nhiều người.
+- Tracking ID: mã theo dõi một đối tượng xuyên qua nhiều frame của video.
+Vì vậy, hai người đều thuộc lớp person vẫn cần hai instance riêng trong ảnh; không dùng instance_id thay cho class ID hoặc tracking ID.
 4. Viết **một quy tắc vẽ biên mask** để người gán nhãn làm theo.
- Quy tắc: "Người gán nhãn (Annotator) phải vẽ đường bao đa giác (polygon) men sát theo đường biên ngoài cùng (pixel-perfect) của phần vật thể hiển thị thực tế trên ảnh. Đối với vật thể bị rỗng bên trong (như quai chảo/tay cầm đồ vật), phải vẽ thêm mask phụ để đục lỗ (khoét) phần phông nền lọt thỏm bên trong ra."
+ Với mỗi đối tượng nhìn thấy, tạo một mask riêng và men theo đường biên quan sát được ở mức chi tiết mà guideline yêu cầu. Khi đối tượng bị che, chỉ gán vùng nhìn thấy; không vẽ xuyên qua vật che để đoán phần bị khuất. Không gộp hai cá thể cùng lớp thành một mask. Với vùng rỗng/lỗ bên trong, chỉ tạo vùng rỗng nếu định dạng và guideline của dự án hỗ trợ biểu diễn lỗ; không tự ý thêm “mask phụ” nếu schema không quy định.
 5. Trên ảnh `kitchen`, chỉ ra **một** chỗ biên mờ / hai vật chạm nhau / bị che. Bạn dùng guideline hay escalation? Vì sao?
- Hiện tượng quan sát được: Trên ảnh "segmentation_prediction.jpg", khu vực cánh tay trái (từ góc nhìn của người xem) của đối tượng "person" (người) đang thao tác tại bàn bị che khuất và hòa lẫn vào các đồ vật trên mặt bàn (như bát, đĩa, bột). Ranh giới pixel giữa tay áo và đồ vật bên dưới rất mờ nhạt.   Quyết định xử lý: Xử lý bằng Guideline (Quy tắc hướng dẫn).Vì sao (Theo chuẩn Rubric): Sự kiện các đối tượng chạm nhau hoặc che lấn nhau (occlusion) là thuộc tính tự nhiên của dữ liệu thị giác. Việc quy định rõ cách xử lý ngay trong guideline (ví dụ: "Chỉ vẽ polygon bao quanh vùng diện tích hiển thị chắc chắn thuộc về vật thể, dừng đường nét tại điểm bắt đầu bị vật khác đè lên, tuyệt đối không suy luận phần hình khối bị che khuất phía sau") sẽ tạo ra một bộ quy tắc (rule) nhất quán, có khả năng mở rộng (scale) cho mọi annotator, tránh việc phải báo cáo (escalation) tràn lan làm nghẽn tiến độ dự án.   
+ Trong `segmentation_prediction.png`, instance `kitchen-004` được dự đoán là `potted plant`, score `0.632235`, bbox `[0.05, 1.4, 63.45, 148.89]`. Vùng mask nằm ở góc trên-trái, phủ lên phần lá/đồ treo sát mép ảnh. Quan sát ảnh gốc `kitchen.jpg`, vùng này giống cụm lá treo nhưng không thấy rõ chậu cây trong khung hình. Vì vậy, tên lớp `potted plant` là **điểm mơ hồ cần review**, không thể kết luận chắc chắn là đúng hay sai chỉ từ score.
+
+Hướng xử lý: annotator đánh dấu vùng và ghi lý do “không thấy rõ chậu / ranh giới đối tượng sát mép ảnh”; reviewer/QC đối chiếu taxonomy và guideline, sau đó xác nhận nhãn, đổi nhãn nếu có căn cứ, hoặc escalation cho Lab Coach nếu taxonomy không có lớp phù hợp. Không lấy prediction `potted plant` làm quy tắc gán nhãn.
+  
 
 ## 4. Vòng đời và kiểm tra chất lượng
 
@@ -95,34 +114,32 @@ Lab hôm nay chỉ **xem prediction**. Chuỗi dưới đây là vòng đời pr
 | Phát hiện vật thể |  |  |  |  |
 | Instance segmentation |  |  |  |  |
 
-| Tác vụ | Ground truth trông như thế nào? (đơn vị nhãn) | Lỗi hoặc chỗ khó quyết định bạn thấy trên ảnh/JSON | Annotator làm gì? | Reviewer xem gì? |
-| --- | --- | --- | --- | --- |
-| **Phân loại ảnh** | Là **một nhãn duy nhất** (gồm `class_id`, `class_name` từ Taxonomy) áp dụng cho toàn bộ bức ảnh. | Ảnh `traffic` có nhiều xe/người nhưng model dự đoán cao nhất là `cab` (score 0.51). Khó chọn nếu ảnh có nhiều vật thể chính. | Áp dụng Guideline (ví dụ: quy tắc ưu tiên vật thể to nhất/nằm giữa ảnh) để chọn đúng **một** nhãn. | Kiểm tra xem nhãn được chọn có tuân thủ đúng quy tắc ưu tiên trong Guideline hay không. |
-| **Phát hiện vật thể** | Khung bao chữ nhật (**Bounding box** `bbox_xyxy`) bám sát vật thể, kèm nhãn `class_name`. | Trên ảnh `kitchen`, đối tượng người (`person`) bị cắt mất chân ở mép dưới ảnh. Dễ vẽ lấn ra ngoài. | Vẽ box bao sát (tight box) phần vật thể **thực sự nhìn thấy được**, không đoán mò vẽ lấn mép. | Rà soát các lỗi: box vẽ dư khoảng trống (margin), vẽ bao gồm cả phần bóng đổ, hoặc sai nhãn. |
-| **Instance segmentation** | Đa giác (**Polygon** `polygon_xy`) ôm sát biên viền pixel, kèm mã định danh riêng `instance_id` cho từng cá thể. | Trên ảnh `kitchen`, cánh tay người (score 0.90) chạm đồ vật làm biên pixel bị mờ; các cái bát xếp chồng lên nhau. | Vẽ polygon men sát mép vật thể ở mức pixel, dừng nét tại điểm bị che khuất. Cấp `instance_id` riêng biệt. | Phóng to (zoom) để soi biên mask có lẹm vào nền, gộp nhầm 2 cá thể, hoặc vẽ bao hàm cả vùng bị che khuất không. |
-
-
+| Tác vụ | Ground truth cần có | Quan sát từ prediction/ảnh | Annotator thực hiện | Reviewer/QC kiểm tra |
+|---|---|---|---|---|
+| Classification | Một nhãn cấp ảnh theo taxonomy và guideline | `traffic` top-1 là `cab`, score `0.510915`, trong khi ảnh có nhiều loại phương tiện | Chọn nhãn theo tiêu chí chủ đề chính đã thống nhất; trường hợp ngang nhau thì gắn cờ review | Kiểm tra tiêu chí chọn nhãn, taxonomy và tính nhất quán; không dùng score làm nhãn chuẩn |
+| Detection | Mỗi vật thể là class + bounding box `xyxy` | Người ở mép trái `score 0.610931`, bbox bắt đầu gần x=0; có truncation | Vẽ box phần nhìn thấy, không đoán phần ngoài ảnh | Kiểm tra lớp, box, vật thể bị cắt/che, box dư hoặc thiếu |
+| Instance segmentation | Mỗi instance là class + mask/polygon riêng | `kitchen-001` person có 348 điểm; `kitchen-004` potted plant ở góc trái là điểm mơ hồ | Vẽ mask riêng, bám biên nhìn thấy; đánh dấu vùng không chắc | Zoom kiểm tra biên, mask gộp/lấn nền, instance trùng và ca cần escalation |
 
 ## 5. An toàn dữ liệu
 
 1. Quy tắc bảo vệ dữ liệu của bạn cho bài lab này là gì? (viết 1 câu)
- Tuyệt đối không chia sẻ hình ảnh, dữ liệu khách hàng hoặc đưa dữ liệu nội bộ lên các công cụ AI công cộng (public) khi chưa được phép.
+  Chỉ sử dụng dữ liệu được phép cho bài lab; không tải ảnh riêng, dữ liệu khách hàng, dữ liệu nội bộ/VinFast hoặc dữ liệu cá nhân không cần thiết lên repository công khai hay công cụ AI công cộng khi chưa được cấp quyền.
 2. Nếu gặp ảnh hoặc dữ liệu không đúng phạm vi, bạn sẽ dừng và báo cho ai?
- Dừng ngay thao tác gán nhãn và báo cáo (escalation) cho Lab Coach hoặc Quản lý dự án (Project Manager).
+ Nếu phát hiện dữ liệu sai phạm vi, nhạy cảm hoặc không rõ quyền sử dụng, dừng xử lý, không chia sẻ tiếp và báo Lab Coach/quản lý dự án theo kênh được chỉ định.
 
 
 ## 6. Checklist trước khi nộp link repo
 
 Kiểm tra trên GitHub trong thư mục `report/`:
 
-- [ ] `REPORT.md` (file này đã điền)
-- [ ] `day1_lab_outputs/classification_predictions.json`
-- [ ] `day1_lab_outputs/detection_predictions.json`
-- [ ] `day1_lab_outputs/segmentation_predictions.json`
-- [ ] `day1_lab_outputs/IMAGE_ATTRIBUTION.md`
-- [ ] `day1_lab_outputs/visuals/classification_top5.png`
-- [ ] `day1_lab_outputs/visuals/detection_predictions.png`
-- [ ] `day1_lab_outputs/visuals/segmentation_prediction.png`
-- [ ] Ô validation cuối notebook báo `PASS`
-- [ ] Không có họ tên, MSSV hoặc dữ liệu nhạy cảm trong báo cáo/output
-- [ ] Đã nộp **link repository** trên LMS
+- [x] `REPORT.md` (file này đã điền)
+- [x] `day1_lab_outputs/classification_predictions.json`
+- [x] `day1_lab_outputs/detection_predictions.json`
+- [x] `day1_lab_outputs/segmentation_predictions.json`
+- [x] `day1_lab_outputs/IMAGE_ATTRIBUTION.md`
+- [x] `day1_lab_outputs/visuals/classification_top5.png`
+- [x] `day1_lab_outputs/visuals/detection_predictions.png`
+- [x] `day1_lab_outputs/visuals/segmentation_prediction.png`
+- [x] Ô validation cuối notebook báo `PASS`
+- [x] Không có họ tên, MSSV hoặc dữ liệu nhạy cảm trong báo cáo/output
+- [x] Đã nộp **link repository** trên LMS
